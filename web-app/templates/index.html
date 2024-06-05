@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Real-Time Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.2/socket.io.js"></script>
+    <link rel="stylesheet" href="../static/styles.css" />
+  </head>
+  <body>
+    <header>
+      <span>
+        <h1 class="main-title">Cat Tracer</h1>
+      </span>
+      <span>
+        <h1>Live map</h1>
+      </span>
+      <nav>
+        <ul>
+          <li><a href="/" style="color: white">Home</a></li>
+          <li><a href="/dashboard" style="color: white">Dashboard</a></li>
+        </ul>
+      </nav>
+    </header>
+    <main>
+      <div id="map-container">
+        <div id="map"></div>
+      </div>
+    </main>
+    <script>
+      let map = L.map("map").setView([46.1, 13.262], 17);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+      }).addTo(map);
+
+      let socket = io();
+
+      socket.on("update_coordinates", function (data) {
+        let coordinates = [
+          data.coordinates.latitude,
+          data.coordinates.longitude,
+        ];
+        L.circleMarker(coordinates, {
+          radius: 5,
+          color: "#f00",
+          fillOpacity: 1,
+        }).addTo(map);
+        map.setView(coordinates);
+      });
+
+      socket.on("update_anomalies", function (data) {
+        let coordinates = [data.anomaly.latitude, data.anomaly.longitude];
+        L.marker(coordinates, {
+          icon: L.DivIcon({
+            icon: "🔊",
+          }),
+        })
+          .addTo(map)
+          .bindPopup(
+            `<strong>${data.anomaly.type}</strong>: ${data.anomaly.value}`
+          )
+          .openPopup();
+      });
+    </script>
+  </body>
+</html>
