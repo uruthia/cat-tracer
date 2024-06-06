@@ -40,10 +40,10 @@
           data.coordinates.latitude,
           data.coordinates.longitude,
         ];
-        L.circleMarker(coordinates, {
-          radius: 5,
-          color: "#f00",
-          fillOpacity: 1,
+        L.marker(coordinates, {
+          icon: L.icon({
+            iconUrl: "../marker/pathmarker.png",
+          }),
         }).addTo(map);
         map.setView(coordinates);
       });
@@ -51,8 +51,12 @@
       socket.on("update_anomalies", function (data) {
         let coordinates = [data.anomaly.latitude, data.anomaly.longitude];
         L.marker(coordinates, {
-          icon: L.DivIcon({
-            icon: "🔊",
+          icon: L.icon({
+            iconUrl: "../marker/soundMarker.png",
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+
           }),
         })
           .addTo(map)
