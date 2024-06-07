@@ -9,6 +9,7 @@ import io
 import base64
 import data_formatter
 import pandas as pd
+import plot
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -89,20 +90,22 @@ def dashboard():
 
 @app.route('/plot.png')
 def plot_png():
+    plot.plot(anomalies_dataset)
     # Genera un grafico con Seaborn
-    fig, ax = plt.subplots()
-    sns.set(style="whitegrid")
+    # fig, ax = plt.subplots()
+    # sns.set(style="whitegrid")
+    # print(anomalies_dataset['timestamp'].head(1))
+    # print(coordinates_dataset.head())
+    # # Simula alcuni dati
+    # data = sns.load_dataset("tips")
+    # sns.barplot(x="day", y="total_bill", data=data, ax=ax)
 
-    # Simula alcuni dati
-    data = sns.load_dataset("tips")
-    sns.barplot(x="day", y="total_bill", data=data, ax=ax)
-
-    # Salva il grafico in un buffer
-    img = io.BytesIO()
-    plt.savefig(img, format='png')
-    img.seek(0)
-    plt.close(fig)
-    return send_file(img, mimetype='image/png')
+    # # Salva il grafico in un buffer
+    # img = io.BytesIO()
+    # plt.savefig(img, format='png')
+    # img.seek(0)
+    # plt.close(fig)
+    # return send_file(img, mimetype='image/png')
 
 if __name__ == '__main__':
     socketio.run(app)
