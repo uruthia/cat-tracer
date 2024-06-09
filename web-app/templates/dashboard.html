@@ -2,6 +2,7 @@
 <html>
   <head>
     <title>Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <link rel="stylesheet" href="../static/styles.css" />
   <body class="dashboard-body">
@@ -20,32 +21,232 @@
       </nav>
     </header>
       <div class="dashboard-description">
-        <div class="input-section" method="POST" action="/dashboard">
-          <p>Monitor movements Zeus made in a specific day by picking a date:</p>
-          <input type="date" id="date-picker" name="date" value="">
+        
+        <div class="general-info">
+          <div class="img-container">
+            <img src="../static/images/zeus.jpeg" alt="Zeus the cat"/>
+          </div>
+          <form class="input-section" method="POST" action="/dashboard">
+            <p>Monitor movements Zeus made in a specific day by picking a date:</p>
+            <input type="date" id="date-picker" name="date" value="{{ date }}" onchange="this.form.submit()">
+          </form>
+          <div class="stats">
+            <span class="stats-container">
+              <p>Maximum speed: {{ max_speed }} Km/h</p>
+              <p>Average speed: {{ avg_speed }} Km/h</p>
+            </span>
+            <span class="stats-container">
+              <p>Maximum altitude: {{ max_altitude }} MLS</p>
+              <p>Average altitude: {{ avg_altitude }} MLS</p>
+            </span>
+          </div>
         </div>
       </div>
       <div class="dashboard">
           
           <div class="graph-section">
-            <img src="{{ url_for('static', filename='images/plot.png') }}" alt="graph" />
+            <canvas id="barplot"></canvas>
+            <canvas id="speed_lineplot"></canvas>
           </div>
         
           <div class="map-section">
             <iframe id="map-frame" src="/map"></iframe>
+            <canvas id="altitude_lineplot"></canvas>
           </div>
         
       </div>
     
   </body>
   <script>
-    document.getElementById("date-picker").addEventListener("change", function() {
-      let date = document.getElementById("date-picker").value;
-      let mapFrame = document.getElementById("map-frame");
-      let graph = document.querySelector(".graph-section img");
-      console.log(date);
-      mapFrame.src = "/map?date=" + date;
-      graph.src = "/plot?date=" + date;
-    });
+    
+    {% if barplot_data is defined %}
+          // Parse the barplot_data to JSON
+          let anomalies_data = JSON.parse('{{ barplot_data|tojson }}');
+          console.log(anomalies_data);
+          // Get the canvas element
+
+          let ctx_bar = document.getElementById('barplot').getContext('2d');
+
+          // Create a new Chart object
+          new Chart(ctx_bar, {
+              type: 'bar',
+              data: {
+                  labels: anomalies_data.labels,
+                  datasets: [{
+                      label: 'Sound anomalies',
+                      data: anomalies_data.sound,
+                      backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                      borderColor: 'rgba(75, 192, 192, 1)',
+                      borderWidth: 1
+                  },
+                  {
+                    label: 'Heart rate anomalies',
+                    data: anomalies_data.heart_rate,
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                  }
+                  ]
+              },
+              options: {
+                plugins:{
+                  title: {
+                    display: true,
+                    text: 'Number of anomalies detected per hour'
+                  }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Count'
+                        }
+                    },
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Hour of the day'
+                        }
+                    }
+                }
+            }
+        });
+      {% endif %}
+
+      {% if coordinates_data is defined %}
+          // Parse the speed_lineplot_data to JSON
+          let params_speed = JSON.parse('{{ coordinates_data|tojson }}');
+          console.log(params_speed);
+          // Get the canvas element
+
+          let ctx_line_speed = document.getElementById('speed_lineplot').getContext('2d');
+
+          // Create a new Chart object
+          new Chart(ctx_line_speed, {
+              type: 'line',
+              data: {
+                  labels: params_speed.speed.labels,
+                  datasets: [{
+                      label: 'Speed',
+                      data: params_speed.speed.values,
+                      backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                      borderColor: 'rgba(75, 192, 192, 1)',
+                      borderWidth: 1
+                  }
+                  ]
+              },
+              options: {
+                plugins:{
+                  title: {
+                    display: true,
+                    text: 'Speed values detected'
+                  }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        display: true,
+                        title: {
+                            text: 'Km/h',
+                            display: true,
+                        }
+                    },
+                    x: {
+                      display: true,
+                        title: {
+                            text: 'Timestamp',
+                            display: true,
+                        }
+                    }
+                }
+            }
+        });
+
+        let params_alt = JSON.parse('{{ coordinates_data|tojson }}');
+          console.log(params_alt);
+          // Get the canvas element
+        let ctx_line_alt = document.getElementById('altitude_lineplot').getContext('2d');
+
+          // Create a new Chart object
+          new Chart(ctx_line_alt, {
+              type: 'line',
+              data: {
+                  labels: params_alt.altitude.labels,
+                  datasets: [{
+                      label: 'Altitude',
+                      data: params_alt.altitude.values,
+                      backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                      borderColor: 'rgba(75, 192, 192, 1)',
+                      borderWidth: 1
+                  }
+                  ]
+              },
+              options: {
+                plugins:{
+                  title: {
+                    display: true,
+                    text: 'Altitude levels detected'
+                  },
+                },
+                
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        display: true,
+                        title: {
+                            text: 'MSL',
+                            display: true,
+                        }
+                    },
+                    x: {
+                        display: true,
+                        title: {
+                            text: 'Timestamp',
+                            display: true,
+                        }
+                    }
+                }
+            }
+        });
+      {% endif %}
+
+      {% if altitude_lineplot_data is defined %}
+          // Parse the altitude_lineplot_data to JSON
+          let data = JSON.parse('{{ altitude_lineplot_data|tojson }}');
+          console.log(data);
+          // Get the canvas element
+
+          let ctx = document.getElementById('altitude_lineplot').getContext('2d');
+
+          // Create a new Chart object
+          new Chart(ctx, {
+              type: 'line',
+              data: {
+                  labels: data.labels,
+                  datasets: [{
+                      label: 'Altitude',
+                      data: data.altitude,
+                      backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                      borderColor: 'rgba(75, 192, 192, 1)',
+                      borderWidth: 1
+                  }
+                  ]
+              },
+              options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+      {% endif %}
+
+    let date = "{{ date }}";
+    let mapFrame = document.getElementById("map-frame");
+    mapFrame.src = "/map?date=" + date;
   </script>
 </html>

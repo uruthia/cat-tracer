@@ -73,14 +73,86 @@ def index():
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
-    
     if request.method == 'POST':
         date = request.form['date']
-        plot.plot(anomalies_dataset, date)
-        return redirect(url_for('dashboard'))
-    
-    return render_template('dashboard.html')
+        anomalies_df = pd.DataFrame()
+        coordinates_df = pd.DataFrame()
+        
+        anomalies_docs = db.collection('anomalies').get()
+        coordinates_docs = db.collection('coordinates').get()
+        anomalies = []
+        coordinates = []
 
+        for doc in anomalies_docs:
+            anomalies.append(doc.to_dict())
+        
+        for doc in coordinates_docs:
+            coordinates.append(doc.to_dict()) 
+            
+        anomalies_df = pd.concat([anomalies_df, data_formatter.create_anomalies_dataset(anomalies)], ignore_index=True)
+        coordinates_df = pd.concat([coordinates_df, data_formatter.create_coordinates_dataset(coordinates)], ignore_index=True)
+        #print(coordinates_df.iloc[0])
+        anomalies_df['day'] = anomalies_df['timestamp'].dt.date
+        anomalies_df['time'] = anomalies_df['timestamp'].dt.time
+        
+        coordinates_df['day'] = coordinates_df['timestamp'].dt.date
+        coordinates_df['time'] = coordinates_df['timestamp'].dt.time
+
+        if date is None:
+            date = anomalies_df['day'].iloc[0]
+        
+        else:
+            date = datetime.strptime(date, '%Y-%m-%d').date()
+        
+        anomalies_of_the_day = anomalies_df[anomalies_df['day'] == date]
+        coordinates_of_the_day = coordinates_df[coordinates_df['day'] == date]
+
+        anomalies_of_the_day['hour'] = anomalies_of_the_day['timestamp'].dt.hour
+        barplot_df = anomalies_of_the_day.groupby(['hour', 'type']).size().reset_index(name='count')
+        # Pivot the DataFrame
+    
+        pivot_df = barplot_df.pivot(index='hour', columns='type', values='count')
+
+        # Reset the index
+        pivot_df = pivot_df.reset_index()
+        if 'heart_rate' not in pivot_df.columns:
+            pivot_df['heart_rate'] = 0
+        if 'sound' not in pivot_df.columns:
+            pivot_df['sound'] = 0
+        # Fill NaN values with 0
+        pivot_df = pivot_df.fillna(0)
+        
+        print(pivot_df)
+       
+        pivot = {
+            "labels": pivot_df['hour'].tolist(),
+            "sound": pivot_df['sound'].tolist(),
+            "heart_rate": pivot_df['heart_rate'].tolist()
+        }
+        
+        coordinates_of_the_day.sort_values(by='timestamp', inplace=True)
+        speed = {
+            "labels":coordinates_of_the_day['timestamp'].tolist(),
+            "values":coordinates_of_the_day['speed'].tolist()
+        }
+       
+        altitude = {
+            "labels": coordinates_of_the_day['timestamp'].tolist(),
+            "values": coordinates_of_the_day['altitude'].tolist()
+        }
+        
+        coordinates_of_the_day['speed'] = coordinates_of_the_day['speed'].astype(float)
+        coordinates_of_the_day['altitude'] = coordinates_of_the_day['altitude'].astype(float)
+        avg_speed = round(coordinates_of_the_day['speed'].mean(), 2)
+        avg_altitude = round(coordinates_of_the_day['altitude'].mean(), 2)
+        max_speed = round(coordinates_of_the_day['speed'].max(), 2)
+        max_altitude = round(coordinates_of_the_day['altitude'].max(), 2)
+        
+        
+        return render_template('dashboard.html', barplot_data={"labels": pivot['labels'], "sound": pivot['sound'], "heart_rate": pivot['heart_rate']}, coordinates_data={ 'speed': speed, 'altitude': altitude }, date=date, max_speed=max_speed, max_altitude=max_altitude, avg_speed=avg_speed, avg_altitude=avg_altitude)
+    else:
+        return render_template('dashboard.html')
+    
 @app.route('/map') # lat long type value
 def map_view():
     coordinates_df = pd.DataFrame()
@@ -113,7 +185,7 @@ def map_view():
     
     coordinates_list = [[46.100, 13.262]]  # Coordinate di default
     date = request.args.get('date')
-    if date is None:
+    if date is None or date == '':
         date = coordinates_df['day'].iloc[0]
     else:
     #date = datetime.strptime(date_str, '%Y-%m-%d').date()  # adjust the format string as per your date format
@@ -134,7 +206,10 @@ def map_view():
           
             folium.Marker(
                 location=[latitude, longitude],
-                icon=folium.Icon(color='blue'),
+                icon=folium.CustomIcon(
+                    "./static/marker/pathMarker.png",
+                    icon_size=(20, 20)
+                    ),
             ).add_to(folium_map)
         except ValueError:
             print(f"Invalid coordinates: {coordinate['latitude']}, {coordinate['longitude']}")
@@ -150,77 +225,15 @@ def map_view():
             
             folium.Marker(
                 location=[latitude, longitude],
-                icon=folium.Icon(color='red'),
+                icon=folium.CustomIcon(
+                    "./static/marker/soundMarker.png" if anomaly['type'] == 'sound' else "./static/marker/HeartbeatMarker.png",
+                    icon_size=(45, 50)
+                    ),
             ).add_to(folium_map)
         except ValueError:
             print(f"Invalid coordinates: {anomaly['latitude']}, {anomaly['longitude']}")
             continue 
     return folium_map._repr_html_()
-
-@app.route('/plot')
-def plot_view():
-   
-    anomalies_df = pd.DataFrame()
-    coordinates_df = pd.DataFrame()
-    
-    anomalies_docs = db.collection('anomalies').get()
-    coordinates_docs = db.collection('coordinates').get()
-    anomalies = []
-    coordinates = []
-
-    for doc in anomalies_docs:
-        anomalies.append(doc.to_dict())
-    
-    for doc in coordinates_docs:
-        coordinates.append(doc.to_dict()) 
-        
-    anomalies_df = pd.concat([anomalies_df, data_formatter.create_anomalies_dataset(anomalies)], ignore_index=True)
-    coordinates_df = pd.concat([coordinates_df, data_formatter.create_coordinates_dataset(coordinates)], ignore_index=True)
-    #print(coordinates_df.iloc[0])
-    anomalies_df['day'] = anomalies_df['timestamp'].dt.date
-    anomalies_df['time'] = anomalies_df['timestamp'].dt.time
-    
-    coordinates_df['day'] = coordinates_df['timestamp'].dt.date
-    coordinates_df['time'] = coordinates_df['timestamp'].dt.time
-
-    date = request.args.get('date')
-    if date is None:
-        date = anomalies_df['day'].iloc[0]
-       
-    else:
-        date = datetime.strptime(date, '%Y-%m-%d').date()
-       
-    anomalies_of_the_day = anomalies_df[anomalies_df['day'] == date]
-    coordinates_of_the_day = coordinates_df[coordinates_df['day'] == date]
-    
-    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(15, 10))
-    sns.set_theme(style="whitegrid", font_scale = 1.5)
-    
-    ## grafico dei rumori forti nel giorno odierno
-    # sound_df = anomalies_of_the_day[(anomalies_of_the_day['day'] == date) &  (anomalies_of_the_day['type'] == 'sound') ]
-    # sns.lineplot(x="timestamp", y="value",  data=sound_df, ax=ax1)
-
-    # heart_df = anomalies_of_the_day[ (anomalies_of_the_day['day'] == date) & (anomalies_of_the_day['type'] == 'heart_rate') ]
-    # sns.lineplot(x="timestamp", y="value", data=heart_df, ax=ax2)
-
-    #barplot delle anomalie
-    anomalies_of_the_day['hour'] = anomalies_of_the_day['timestamp'].dt.hour
-    barplot_df = anomalies_of_the_day.groupby(['hour', 'type']).size().reset_index(name='count')
-    print(barplot_df)
-    sns.barplot(x="hour", y="count", hue="type", data=barplot_df, ax=ax1)
-    ax1.set_title('Anomalie nel giorno odierno')
-    ax1.set_xlabel('Orario')
-    ax1.set_ylabel('numero di anomalie')
-    
-    sns.lineplot(x="timestamp", y="speed", data=coordinates_of_the_day, ax=ax2)
-    ax2.set_title('Velocità nel giorno odierno')
-    ax2.set_xlabel('Orario', fontsize=14)
-    ax2.set_ylabel('Velocità', fontsize=14)
-    #plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
-
-    plt.savefig('static/images/plot.png', bbox_inches='tight', pad_inches=0.1)
-    plt.close(fig)
-    return send_file('static/images/plot.png')
 
 if __name__ == '__main__':
     socketio.run(app)
