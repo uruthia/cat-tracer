@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from datetime import datetime  # Import corretto
+from flask import Flask, redirect, render_template, request, jsonify, send_file, url_for
 from flask_socketio import SocketIO
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -10,6 +11,7 @@ import base64
 import data_formatter
 import pandas as pd
 import plot
+from flask import request
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -21,59 +23,41 @@ db = firestore.client()
 coordinates_dataset = pd.DataFrame()
 anomalies_dataset = pd.DataFrame()
 
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/map') # lat long type value
-def map_view():
-    
-    coordinates_list = [[46.100, 13.262]]  # Coordinate di default
-
-    # Utilizza la prima coppia di coordinate per centrare la mappa
-    folium_map = folium.Map(location=coordinates_list[0], zoom_start=17)
-    
-    for _, coordinate in coordinates_dataset.iterrows():
-        folium.Marker(location=[coordinate['latitude'], coordinate['longitude']]).add_to(folium_map)
-        
-    for _, anomaly in anomalies_dataset.iterrows():
-        folium.Marker(location=[anomaly['latitude'], anomaly['longitude']], icon=folium.Icon(color='red'), popup=f"<strong>{anomaly['type']}</strong>").add_to(folium_map)    
-    return folium_map._repr_html_()
-
 def on_snapshot_coordinates(doc_snapshot, changes, read_time):
     coordinates_list = []
-    for doc in doc_snapshot:
-        data = doc.to_dict()
-        print(data)
-        coordinates_list.append(data)
-        coordinates = {
-            'latitude': data.get('latitude'),
-            'longitude': data.get('longitude'),
-            'timestamp': data.get('timestamp').strftime('%Y-%m-%d %H:%M:%S'),
-            'type': data.get('type'),
-            'altitude': data.get('altitude'),
-            'speed': data.get('speed')
-        }
-        if coordinates:
-            socketio.emit('update_coordinates', {'coordinates': coordinates})
+    for change in changes:
+        if change.type.name == 'ADDED':
+            data = change.document.to_dict()
+            coordinates_list.append(data)
+            coordinates = {
+                'latitude': data.get('latitude'),
+                'longitude': data.get('longitude'),
+                'timestamp': data.get('timestamp').strftime('%Y-%m-%d %H:%M:%S'),
+                'type': data.get('type'),
+                'altitude': data.get('altitude'),
+                'speed': data.get('speed')
+            }
+            if coordinates:
+                socketio.emit('update_coordinates', {'coordinates': coordinates})
     
     global coordinates_dataset
     coordinates_dataset = pd.concat([coordinates_dataset, data_formatter.create_coordinates_dataset(coordinates_list)], ignore_index=True)
-    
+
 def on_snapshot_anomalies(doc_snapshot, changes, read_time):
     anomalies_list = []
-    for doc in doc_snapshot:
-        data = doc.to_dict()
-        print(data)
-        anomalies_list.append(data)
-        anomaly = {
-            'type': data.get('type'),
-            'value': data.get('value'),
-            'latitude': data.get('latitude'),
-            'longitude': data.get('longitude'),
-            'timestamp': data.get('timestamp').strftime('%Y-%m-%d %H:%M:%S')
-        }
-        socketio.emit('update_anomalies', {'anomaly': anomaly})
+    for change in changes:
+        if change.type.name == 'ADDED':
+            data = change.document.to_dict()
+            anomalies_list.append(data)
+            anomaly = {
+                'type': data.get('type'),
+                'value': data.get('value'),
+                'latitude': data.get('latitude'),
+                'longitude': data.get('longitude'),
+                'timestamp': data.get('timestamp').strftime('%Y-%m-%d %H:%M:%S')
+            }
+            socketio.emit('update_anomalies', {'anomaly': anomaly})
+    
     global anomalies_dataset
     anomalies_dataset = pd.concat([anomalies_dataset, data_formatter.create_anomalies_dataset(anomalies_list)], ignore_index=True)
 
@@ -83,29 +67,160 @@ doc_ref.on_snapshot(on_snapshot_coordinates)
 doc_ref = db.collection('anomalies')
 doc_ref.on_snapshot(on_snapshot_anomalies)
 
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-@app.route('/dashboard')
+@app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
+    
+    if request.method == 'POST':
+        date = request.form['date']
+        plot.plot(anomalies_dataset, date)
+        return redirect(url_for('dashboard'))
+    
     return render_template('dashboard.html')
 
-@app.route('/plot.png')
-def plot_png():
-    plot.plot(anomalies_dataset)
-    # Genera un grafico con Seaborn
-    # fig, ax = plt.subplots()
-    # sns.set(style="whitegrid")
-    # print(anomalies_dataset['timestamp'].head(1))
-    # print(coordinates_dataset.head())
-    # # Simula alcuni dati
-    # data = sns.load_dataset("tips")
-    # sns.barplot(x="day", y="total_bill", data=data, ax=ax)
+@app.route('/map') # lat long type value
+def map_view():
+    coordinates_df = pd.DataFrame()
+    anomalies_df = pd.DataFrame()
+    
+    anomalies_docs = db.collection('anomalies').get()
+    coordinates_docs = db.collection('coordinates').get()
+    
+    anomalies = []
+    coordinates = []
+    
+    for doc in anomalies_docs:
+        anomalies.append(doc.to_dict())
+        
+    for doc in coordinates_docs:
+        coordinates.append(doc.to_dict())
+    
+    coordinates_df = pd.concat([coordinates_df, data_formatter.create_coordinates_dataset(coordinates)], ignore_index=True)
+    anomalies_df = pd.concat([anomalies_df, data_formatter.create_anomalies_dataset(anomalies)], ignore_index=True)
 
-    # # Salva il grafico in un buffer
-    # img = io.BytesIO()
-    # plt.savefig(img, format='png')
-    # img.seek(0)
-    # plt.close(fig)
-    # return send_file(img, mimetype='image/png')
+    
+    anomalies_df['day'] = anomalies_df['timestamp'].dt.date
+    anomalies_df['time'] = anomalies_df['timestamp'].dt.time
+    
+    coordinates_df['day'] = coordinates_df['timestamp'].dt.date
+    coordinates_df['time'] = coordinates_df['timestamp'].dt.time
+    
+    #print(coordinates_df.iloc[0])
+    
+    
+    coordinates_list = [[46.100, 13.262]]  # Coordinate di default
+    date = request.args.get('date')
+    if date is None:
+        date = coordinates_df['day'].iloc[0]
+    else:
+    #date = datetime.strptime(date_str, '%Y-%m-%d').date()  # adjust the format string as per your date format
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+
+    # Utilizza la prima coppia di coordinate per centrare la mappa
+    folium_map = folium.Map(location=coordinates_list[0], zoom_start=17)
+    
+    
+    coordinate_of_the_day = coordinates_df[coordinates_df['day'] == date]
+    anomalies_of_the_day = anomalies_df[anomalies_df['day'] == date]
+    #print(coordinate_of_the_day.dtypes)
+    for _, coordinate in coordinate_of_the_day.iterrows():
+        print(coordinate)
+        try:
+            latitude = float(coordinate['latitude'])
+            longitude = float(coordinate['longitude'])
+          
+            folium.Marker(
+                location=[latitude, longitude],
+                icon=folium.Icon(color='blue'),
+            ).add_to(folium_map)
+        except ValueError:
+            print(f"Invalid coordinates: {coordinate['latitude']}, {coordinate['longitude']}")
+            continue 
+        
+               
+    for _, anomaly in anomalies_of_the_day.iterrows():
+        print(anomaly)
+        try:
+            latitude = float(anomaly['latitude'])
+            longitude = float(anomaly['longitude'])
+           
+            
+            folium.Marker(
+                location=[latitude, longitude],
+                icon=folium.Icon(color='red'),
+            ).add_to(folium_map)
+        except ValueError:
+            print(f"Invalid coordinates: {anomaly['latitude']}, {anomaly['longitude']}")
+            continue 
+    return folium_map._repr_html_()
+
+@app.route('/plot')
+def plot_view():
+   
+    anomalies_df = pd.DataFrame()
+    coordinates_df = pd.DataFrame()
+    
+    anomalies_docs = db.collection('anomalies').get()
+    coordinates_docs = db.collection('coordinates').get()
+    anomalies = []
+    coordinates = []
+
+    for doc in anomalies_docs:
+        anomalies.append(doc.to_dict())
+    
+    for doc in coordinates_docs:
+        coordinates.append(doc.to_dict()) 
+        
+    anomalies_df = pd.concat([anomalies_df, data_formatter.create_anomalies_dataset(anomalies)], ignore_index=True)
+    coordinates_df = pd.concat([coordinates_df, data_formatter.create_coordinates_dataset(coordinates)], ignore_index=True)
+    #print(coordinates_df.iloc[0])
+    anomalies_df['day'] = anomalies_df['timestamp'].dt.date
+    anomalies_df['time'] = anomalies_df['timestamp'].dt.time
+    
+    coordinates_df['day'] = coordinates_df['timestamp'].dt.date
+    coordinates_df['time'] = coordinates_df['timestamp'].dt.time
+
+    date = request.args.get('date')
+    if date is None:
+        date = anomalies_df['day'].iloc[0]
+       
+    else:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+       
+    anomalies_of_the_day = anomalies_df[anomalies_df['day'] == date]
+    coordinates_of_the_day = coordinates_df[coordinates_df['day'] == date]
+    
+    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(15, 10))
+    sns.set_theme(style="whitegrid", font_scale = 1.5)
+    
+    ## grafico dei rumori forti nel giorno odierno
+    # sound_df = anomalies_of_the_day[(anomalies_of_the_day['day'] == date) &  (anomalies_of_the_day['type'] == 'sound') ]
+    # sns.lineplot(x="timestamp", y="value",  data=sound_df, ax=ax1)
+
+    # heart_df = anomalies_of_the_day[ (anomalies_of_the_day['day'] == date) & (anomalies_of_the_day['type'] == 'heart_rate') ]
+    # sns.lineplot(x="timestamp", y="value", data=heart_df, ax=ax2)
+
+    #barplot delle anomalie
+    anomalies_of_the_day['hour'] = anomalies_of_the_day['timestamp'].dt.hour
+    barplot_df = anomalies_of_the_day.groupby(['hour', 'type']).size().reset_index(name='count')
+    print(barplot_df)
+    sns.barplot(x="hour", y="count", hue="type", data=barplot_df, ax=ax1)
+    ax1.set_title('Anomalie nel giorno odierno')
+    ax1.set_xlabel('Orario')
+    ax1.set_ylabel('numero di anomalie')
+    
+    sns.lineplot(x="timestamp", y="speed", data=coordinates_of_the_day, ax=ax2)
+    ax2.set_title('Velocità nel giorno odierno')
+    ax2.set_xlabel('Orario', fontsize=14)
+    ax2.set_ylabel('Velocità', fontsize=14)
+    #plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
+
+    plt.savefig('static/images/plot.png', bbox_inches='tight', pad_inches=0.1)
+    plt.close(fig)
+    return send_file('static/images/plot.png')
 
 if __name__ == '__main__':
     socketio.run(app)

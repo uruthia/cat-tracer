@@ -6,7 +6,7 @@ ser = serial.Serial('COM10', 9600)
 try:
     while True:
         if ser.in_waiting > 0:
-            data = ser.readline().decode('utf-8').strip().split(',')
+            data = ser.readline().decode('utf-8', 'ignore').strip().split(',')
             print(data)
             if (data[0] == "MIC"):
                 data[0] = 'sound'

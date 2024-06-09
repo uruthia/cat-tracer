@@ -66,6 +66,7 @@ main {
     width: 100%;
     height: 100%;
     border: none;
+    z-index: 1;
 }
 
 h1 {
@@ -92,4 +93,70 @@ a {
 a:hover {
     font-weight: bold;
     font-size: larger;
+}
+
+#find-zeus {
+    position: fixed;
+    bottom: 10%;
+    right: 10%;
+    padding: 1rem;
+    background-color: #333;
+    color: white;
+    transition: all 0.2s ease-in-out;
+    border-radius: 20px;
+    z-index: 2;
+}
+
+#find-zeus:hover {
+    background-color: #444;
+    font-weight: bold;
+}
+
+.dashboard-description {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.dashboard-body {
+    height: fit-content;
+    overflow-y: scroll;
+}
+
+.dashboard {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    width: 100%;
+}
+
+.input-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    width: 100%;
+}
+
+.graph-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    height: 600px;
+}
+
+.graph-section img {
+    width: 100%;
+    height: 100%;
+}
+
+.map-section {
+    height: 600px;
+    width: 100%;
+    padding: 1rem;
+}
+
+#map-frame {
+    height: 100%;
+    width: 100%;
 }

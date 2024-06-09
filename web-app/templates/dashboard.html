@@ -4,7 +4,7 @@
     <title>Dashboard</title>
   </head>
   <link rel="stylesheet" href="../static/styles.css" />
-  <body>
+  <body class="dashboard-body">
     <header>
       <span>
         <h1 class="main-title">Cat Tracer</h1>
@@ -19,10 +19,33 @@
         </ul>
       </nav>
     </header>
-    <main>
-      <div>
-        <img src="/plot.png" alt="Plot" />
+      <div class="dashboard-description">
+        <div class="input-section" method="POST" action="/dashboard">
+          <p>Monitor movements Zeus made in a specific day by picking a date:</p>
+          <input type="date" id="date-picker" name="date" value="">
+        </div>
       </div>
-    </main>
+      <div class="dashboard">
+          
+          <div class="graph-section">
+            <img src="{{ url_for('static', filename='images/plot.png') }}" alt="graph" />
+          </div>
+        
+          <div class="map-section">
+            <iframe id="map-frame" src="/map"></iframe>
+          </div>
+        
+      </div>
+    
   </body>
+  <script>
+    document.getElementById("date-picker").addEventListener("change", function() {
+      let date = document.getElementById("date-picker").value;
+      let mapFrame = document.getElementById("map-frame");
+      let graph = document.querySelector(".graph-section img");
+      console.log(date);
+      mapFrame.src = "/map?date=" + date;
+      graph.src = "/plot?date=" + date;
+    });
+  </script>
 </html>
