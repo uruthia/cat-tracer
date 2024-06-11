@@ -1,22 +1,16 @@
-from datetime import datetime  # Import corretto
-from flask import Flask, redirect, render_template, request, jsonify, send_file, url_for
+from datetime import datetime
+from flask import Flask, render_template, request
 from flask_socketio import SocketIO
 import firebase_admin
 from firebase_admin import credentials, firestore
 import folium
-import seaborn as sns
-import matplotlib.pyplot as plt
-import io
-import base64
 import data_formatter
 import pandas as pd
-import plot
 from flask import request
 
 app = Flask(__name__)
 socketio = SocketIO(app)
 
-# Inizializzazione di Firebase
 cred = credentials.Certificate('service_account_key.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
@@ -91,7 +85,6 @@ def dashboard():
             
         anomalies_df = pd.concat([anomalies_df, data_formatter.create_anomalies_dataset(anomalies)], ignore_index=True)
         coordinates_df = pd.concat([coordinates_df, data_formatter.create_coordinates_dataset(coordinates)], ignore_index=True)
-        #print(coordinates_df.iloc[0])
         anomalies_df['day'] = anomalies_df['timestamp'].dt.date
         anomalies_df['time'] = anomalies_df['timestamp'].dt.time
         
@@ -100,7 +93,6 @@ def dashboard():
 
         if date is None:
             date = anomalies_df['day'].iloc[0]
-        
         else:
             date = datetime.strptime(date, '%Y-%m-%d').date()
         
@@ -109,20 +101,15 @@ def dashboard():
 
         anomalies_of_the_day['hour'] = anomalies_of_the_day['timestamp'].dt.hour
         barplot_df = anomalies_of_the_day.groupby(['hour', 'type']).size().reset_index(name='count')
-        # Pivot the DataFrame
     
         pivot_df = barplot_df.pivot(index='hour', columns='type', values='count')
 
-        # Reset the index
         pivot_df = pivot_df.reset_index()
         if 'heart_rate' not in pivot_df.columns:
             pivot_df['heart_rate'] = 0
         if 'sound' not in pivot_df.columns:
             pivot_df['sound'] = 0
-        # Fill NaN values with 0
         pivot_df = pivot_df.fillna(0)
-        
-        print(pivot_df)
        
         pivot = {
             "labels": pivot_df['hour'].tolist(),
@@ -153,7 +140,7 @@ def dashboard():
     else:
         return render_template('dashboard.html')
     
-@app.route('/map') # lat long type value
+@app.route('/map')
 def map_view():
     coordinates_df = pd.DataFrame()
     anomalies_df = pd.DataFrame()
@@ -180,24 +167,18 @@ def map_view():
     coordinates_df['day'] = coordinates_df['timestamp'].dt.date
     coordinates_df['time'] = coordinates_df['timestamp'].dt.time
     
-    #print(coordinates_df.iloc[0])
-    
-    
     coordinates_list = [[46.100, 13.262]]  # Coordinate di default
     date = request.args.get('date')
     if date is None or date == '':
         date = coordinates_df['day'].iloc[0]
     else:
-    #date = datetime.strptime(date_str, '%Y-%m-%d').date()  # adjust the format string as per your date format
         date = datetime.strptime(date, '%Y-%m-%d').date()
 
-    # Utilizza la prima coppia di coordinate per centrare la mappa
     folium_map = folium.Map(location=coordinates_list[0], zoom_start=17)
     
     
     coordinate_of_the_day = coordinates_df[coordinates_df['day'] == date]
     anomalies_of_the_day = anomalies_df[anomalies_df['day'] == date]
-    #print(coordinate_of_the_day.dtypes)
     for _, coordinate in coordinate_of_the_day.iterrows():
         print(coordinate)
         try:

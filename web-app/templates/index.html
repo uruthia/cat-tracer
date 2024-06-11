@@ -12,13 +12,24 @@
       <span>
         <h1 class="main-title">Cat Tracer</h1>
       </span>
-      <span>
-        <h1>Live map</h1>
-      </span>
       <nav>
         <ul>
-          <li><a href="/" style="color: white">Home</a></li>
-          <li><a href="/dashboard" style="color: white">Dashboard</a></li>
+          <li>
+            <a
+              href="/"
+              class="{{ 'active-link' if request.path == '/' else '' }}"
+              style="color: white"
+              >Live map</a
+            >
+          </li>
+          <li>
+            <a
+              href="/dashboard"
+              class="{{ 'active-link' if request.path == '/dashboard' else '' }}"
+              style="color: white"
+              >Dashboard</a
+            >
+          </li>
         </ul>
       </nav>
     </header>
@@ -27,7 +38,9 @@
         <div id="map"></div>
       </div>
     </main>
-    <button id="find-zeus" onclick="showLastMarkerPosition()">Find Zeus!</button>
+    <button id="find-zeus" onclick="showLastMarkerPosition()">
+      Find Zeus!
+    </button>
   </body>
   <script>
     let map = L.map("map").setView([46.1, 13.262], 17);
@@ -40,47 +53,48 @@
     let lastMarker = null;
 
     socket.on("update_coordinates", function (data) {
-        let coordinates = [
-          data.coordinates.latitude,
-          data.coordinates.longitude,
-        ];
+      let coordinates = [data.coordinates.latitude, data.coordinates.longitude];
 
-        if (lastMarker) {
-            lastMarker.setIcon(
-              L.icon({
-                iconUrl: "{{ url_for('static', filename='marker/pathMarker.png') }}" ,
-                iconSize: [20, 20],
-              }),
-            );
-            lastMarker.setZIndexOffset(0);
-        }
+      if (lastMarker) {
+        lastMarker.setIcon(
+          L.icon({
+            iconUrl:
+              "{{ url_for('static', filename='marker/pathMarker.png') }}",
+            iconSize: [20, 20],
+          })
+        );
+        lastMarker.setZIndexOffset(0);
+      }
 
-        lastMarker = L.marker(coordinates, {
-          icon: L.icon({
-            iconUrl:"{{ url_for('static', filename='marker/markerZeus.png') }}" ,
-            iconSize: [45, 50],
-          }),
-          zIndexOffset: 1000,
-        }).addTo(map);
+      lastMarker = L.marker(coordinates, {
+        icon: L.icon({
+          iconUrl: "{{ url_for('static', filename='marker/markerZeus.png') }}",
+          iconSize: [45, 50],
+        }),
+        zIndexOffset: 1000,
+      }).addTo(map);
     });
 
     socket.on("update_anomalies", function (data) {
       let coordinates = [data.anomaly.latitude, data.anomaly.longitude];
-      let iconUrl = (data.anomaly.type == 'sound') ? "{{ url_for('static', filename='marker/soundMarker.png') }}" : "{{ url_for('static', filename='marker/HeartbeatMarker.png') }}";
+      let iconUrl =
+        data.anomaly.type == "sound"
+          ? "{{ url_for('static', filename='marker/soundMarker.png') }}"
+          : "{{ url_for('static', filename='marker/HeartbeatMarker.png') }}";
 
       L.marker(coordinates, {
         icon: L.icon({
-            iconUrl: iconUrl,
-            iconSize: [35, 40],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
+          iconUrl: iconUrl,
+          iconSize: [35, 40],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
         }),
       })
-      .addTo(map)
-      .bindPopup(
+        .addTo(map)
+        .bindPopup(
           `<strong>${data.anomaly.type}</strong>: ${data.anomaly.value}`
-      )
-      .openPopup();
+        )
+        .openPopup();
     });
 
     function showLastMarkerPosition() {
