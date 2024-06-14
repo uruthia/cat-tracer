@@ -281,7 +281,6 @@ a:hover {
 canvas, iframe {
     width: 100%; /* Make canvas and iframe take full width of the parent div */
     height: 100%; /* Make canvas and iframe take full height of the parent div */
-    height: auto; /* Adjust height automatically to maintain aspect ratio */
     display: block; /* Remove inline-block space */
 }
 
@@ -326,7 +325,6 @@ canvas, iframe {
 
 #map-frame {
     width: 100%;
-    min-height: 500px;
     margin: 2rem;
 }
 

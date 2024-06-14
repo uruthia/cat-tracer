@@ -116,15 +116,16 @@ def dashboard():
             "sound": pivot_df['sound'].tolist(),
             "heart_rate": pivot_df['heart_rate'].tolist()
         }
+        coordinates_of_the_day['time'] = coordinates_of_the_day['time'].apply(lambda x: x.strftime('%H:%M:%S'))
         
         coordinates_of_the_day.sort_values(by='timestamp', inplace=True)
         speed = {
-            "labels":coordinates_of_the_day['timestamp'].tolist(),
+            "labels":coordinates_of_the_day['time'].tolist(),
             "values":coordinates_of_the_day['speed'].tolist()
         }
        
         altitude = {
-            "labels": coordinates_of_the_day['timestamp'].tolist(),
+            "labels": coordinates_of_the_day['time'].tolist(),
             "values": coordinates_of_the_day['altitude'].tolist()
         }
         
