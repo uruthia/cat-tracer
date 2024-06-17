@@ -15,7 +15,6 @@ try:
                 data[0] = 'heart_rate'
                 firebase.store_anomalie(data)
             elif (data[0] == "GPS"):
-                print(data)
                 firebase.store_coordinate(data)
 except KeyboardInterrupt:
     print("Terminato dalla tastiera")
