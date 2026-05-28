@@ -21,6 +21,43 @@ The system consists of three main components:
     *   Statistical breakdown of anomalies per hour.
     *   Calculation of Max/Avg Speed and Altitude.
 
+## 🧰 Technologies Used
+
+*   **Arduino + LoRaWAN:** Wearable device and long-range communication.
+*   **Python:** Data receiver and processing scripts.
+*   **Flask:** Web dashboard backend.
+*   **Firebase (Realtime Database):** Data storage.
+*   **Pandas:** Data formatting and analytics.
+*   **Leaflet + Socket.IO:** Live map updates and real-time UI.
+
+## ▶️ How to Run
+
+### 1) Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2) Start the data receiver
+
+Connect the LoRa receiver via USB, then run:
+
+```bash
+python data-reader/cat_tracer_receiver.py
+```
+
+### 3) Run the web dashboard
+
+```bash
+python web-app/app.py
+```
+
+Open the dashboard at:
+
+```
+http://127.0.0.1:5000
+```
+
 ## 🛠️ Hardware Architecture
 
 *   **Microcontroller:** Arduino (equipped with LoRaWAN capabilities).
